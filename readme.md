@@ -48,10 +48,17 @@ git clone https://github.com/nikomarinovic/WeatherOS.git
 
 cd WeatherOS
 
-pip install -r requirements.txt
+python3 -m pip install --user --break-system-packages -r requirements.txt
 
 python3 main.py
 ```
+
+> [!NOTE]
+> On modern macOS with Homebrew Python, a plain `pip install` may fail with an
+> `externally-managed-environment` error. The `--break-system-packages` flag
+> above installs the dependencies for your user account only and avoids this.
+> If you have multiple Python versions installed, run `which python3` first
+> to confirm `python3` points to the version you want to use.
 
 ### Linux
 
@@ -60,7 +67,7 @@ git clone https://github.com/nikomarinovic/WeatherOS.git
 
 cd WeatherOS
 
-pip install -r requirements.txt
+python3 -m pip install --user --break-system-packages -r requirements.txt
 
 python3 main.py
 ```
@@ -72,9 +79,9 @@ git clone https://github.com/nikomarinovic/WeatherOS.git
 
 cd WeatherOS
 
-pip install -r requirements.txt
+py -m pip install --user -r requirements.txt
 
-python main.py
+py main.py
 ```
 
 ---

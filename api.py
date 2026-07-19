@@ -13,11 +13,7 @@ class WeatherAPIError(Exception):
 
 
 def get_coordinates(city):
-    """Look up a city name and return its coordinates, or None if not found.
-
-    Raises WeatherAPIError on network/timeout problems so the UI can show a
-    'no connection' message instead of silently failing.
-    """
+    """Look up a city name and return its coordinates, or None if not found."""
     if not city or not city.strip():
         return None
 
@@ -32,11 +28,11 @@ def get_coordinates(city):
         response = requests.get(GEOCODING_URL, params=params, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
     except requests.exceptions.Timeout:
-        raise WeatherAPIError("The request timed out. Please try again.")
+        raise WeatherAPIError("Request timed out.")
     except requests.exceptions.ConnectionError:
-        raise WeatherAPIError("No internet connection.")
+        raise WeatherAPIError("No connection.")
     except requests.exceptions.RequestException:
-        raise WeatherAPIError("Something went wrong while searching for that city.")
+        raise WeatherAPIError("City lookup failed.")
 
     data = response.json()
     results = data.get("results")
@@ -55,16 +51,13 @@ def get_coordinates(city):
 
 
 def get_weather(latitude, longitude):
-    """Fetch current conditions for a coordinate pair.
-
-    Returns temperature, feels-like temperature, humidity, wind speed and a
-    weather code. Raises WeatherAPIError on failure.
-    """
+    """Fetch current conditions plus sunrise/sunset/UV/pressure for a coordinate pair."""
     params = {
         "latitude": latitude,
         "longitude": longitude,
         "current": "temperature_2m,relative_humidity_2m,apparent_temperature,"
-                   "wind_speed_10m,weather_code",
+                   "wind_speed_10m,weather_code,uv_index,surface_pressure",
+        "daily": "sunrise,sunset",
         "timezone": "auto",
     }
 
@@ -72,22 +65,38 @@ def get_weather(latitude, longitude):
         response = requests.get(FORECAST_URL, params=params, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
     except requests.exceptions.Timeout:
-        raise WeatherAPIError("The request timed out. Please try again.")
+        raise WeatherAPIError("Request timed out.")
     except requests.exceptions.ConnectionError:
-        raise WeatherAPIError("No internet connection.")
+        raise WeatherAPIError("No connection.")
     except requests.exceptions.RequestException:
-        raise WeatherAPIError("Something went wrong while fetching the weather.")
+        raise WeatherAPIError("Forecast fetch failed.")
 
     data = response.json()
 
     try:
         current = data["current"]
+        daily = data.get("daily", {})
+
+        sunrise_raw = daily.get("sunrise", [None])[0]
+        sunset_raw = daily.get("sunset", [None])[0]
+
         return {
             "temperature": round(current["temperature_2m"]),
             "feels_like": round(current["apparent_temperature"]),
             "humidity": round(current["relative_humidity_2m"]),
             "wind": round(current["wind_speed_10m"]),
             "weathercode": current["weather_code"],
+            "uv_index": round(current.get("uv_index", 0), 1),
+            "pressure": round(current.get("surface_pressure", 0)),
+            "sunrise": _format_time(sunrise_raw),
+            "sunset": _format_time(sunset_raw),
         }
     except (KeyError, TypeError):
-        raise WeatherAPIError("Received an unexpected response from the weather service.")
+        raise WeatherAPIError("Unexpected response from weather service.")
+
+
+def _format_time(iso_string):
+    """'2026-07-19T05:52' -> '05:52'. Returns '--:--' if missing/malformed."""
+    if not iso_string or "T" not in iso_string:
+        return "--:--"
+    return iso_string.split("T")[1]
